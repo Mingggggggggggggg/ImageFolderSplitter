@@ -1,5 +1,5 @@
 # ImageFolderSplitter
-A script that enumerates images(.png, .jpg, .jpeg) in folders and divides them into adjustable batch sizes. 
+A script that enumerates images (.png, .jpg, .jpeg) in folders and divides them into adjustable batch sizes. 
 
 For Windows
 
