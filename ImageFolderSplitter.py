@@ -5,12 +5,12 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox
 import sys
 
-# Funktion zur Ermittlung der Dateigröße in MB
+#  Ermitteln der Dateigröße in MB
 def get_file_size_mb(file_path):
     size_mb = os.path.getsize(file_path) / (1024 * 1024)
     return size_mb
 
-# Funktion zur Berechnung der Größe eines Verzeichnisses in MB
+# Rekursive Addition enumerierter Bilder
 def get_directory_size_mb(directory):
     total_size = 0
     for dirpath, _, filenames in os.walk(directory):
@@ -19,7 +19,7 @@ def get_directory_size_mb(directory):
             total_size += os.path.getsize(filepath)
     return total_size / (1024 * 1024)  # Größe in MB
 
-# Funktion zur Umbenennung und Verschiebung der Bilder
+# Bilder umbenennen und verschieben
 def rename_and_move_images(input_dir, batch_size_mb):
     # Liste für alle Bilder im Eingabeverzeichnis
     image_files = [f for f in os.listdir(input_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -34,23 +34,22 @@ def rename_and_move_images(input_dir, batch_size_mb):
         # Bildgröße in MB ermitteln
         size_mb = get_file_size_mb(image_path)
 
-        # Neuer Dateiname im Format xxx-originalname
+        # Neuer Dateiname im Format [xxx-originalname]
         new_name = f"{idx + 1:03d}-{original_name}{ext}"
         new_image_path = os.path.join(input_dir, new_name)
 
-        # Bild umbenennen
         os.rename(image_path, new_image_path)
 
         # Ordner für Batch erstellen, falls noch nicht vorhanden
         output_dir = os.path.join(input_dir, str(current_batch))
         os.makedirs(output_dir, exist_ok=True)
 
-        # Bild in den entsprechenden Batch-Ordner verschieben
+        # Bild in entsprechende Batch-Ordner verschieben
         shutil.move(new_image_path, os.path.join(output_dir, new_name))
 
         current_size_mb += size_mb
 
-        # Wenn die Batch-Größe erreicht ist oder alle Bilder durchlaufen wurden
+        # Wenn Batch-Größe erreicht oder alle Bilder durchlaufen
         if current_size_mb >= batch_size_mb or idx == image_count - 1:
             # Berechne die Größe des Batch-Ordners und benenne ihn entsprechend um
             folder_size_mb = get_directory_size_mb(output_dir)
@@ -63,32 +62,32 @@ def rename_and_move_images(input_dir, batch_size_mb):
 
     return current_batch - 1
 
-# GUI für Auswahl des Eingabeverzeichnisses
+# Auswahl Eingabeverzeichnisses
 def select_input_directory():
     root = tk.Tk()
     root.withdraw()  # Verstecke das Tkinter-Fenster
 
-    input_dir = filedialog.askdirectory(title="Wähle den Ordner aus, der bearbeitet werden soll")
+    input_dir = filedialog.askdirectory(title="Wähle bitte den Ordner aus, der bearbeitet werden soll")
 
     if input_dir:
         return input_dir
     else:
         raise ValueError("Kein Ordner ausgewählt")
 
-# GUI für die Eingabe der Zielgröße in MB
+# Eingabe Batchgröße
 def get_batch_size():
     root = tk.Tk()
     root.withdraw()  # Verstecke das Tkinter-Fenster
 
-    batch_size_mb = simpledialog.askinteger("Benutzerdefinierte Zielgröße", "Bitte gib die Zielgröße für jeden Batch in MB ein:", initialvalue=450)
+    batch_size_mb = simpledialog.askinteger("Benutzerdefinierte Zielgröße", "Bitte geben Sie die Zielgröße für jeden Batch in MB ein:\n(Standardmäßig 450MB)", initialvalue=450)
     
     if batch_size_mb is None or batch_size_mb <= 0:
-        # Setze die Batchgröße auf 450 MB, wenn keine Eingabe gemacht wird
+        # Standardgröße 450MB
         batch_size_mb = 450
     
     return batch_size_mb
 
-# Hauptprogramm
+# MAIN
 if __name__ == "__main__":
     try:
         input_dir = select_input_directory()
