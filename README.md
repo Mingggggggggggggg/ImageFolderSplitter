@@ -12,3 +12,6 @@ For Windows
 
 ## Check the sourcecode
 Feel free to check the sourcecode and report any issues you may find. I am happy to learn from my mistakes
+
+
+I would like to convert the python file into an .exe but auto-to-exe can't seem to import DLLs and pyinstaller just straight up does not work/install
