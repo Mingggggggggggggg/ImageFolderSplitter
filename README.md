@@ -2,6 +2,7 @@
 A script that enumerates images (.png, .jpg, .jpeg) in folders and divides them into adjustable batch sizes. 
 
 For Windows
+Haven't and can't test for Linux or Mac.
 
 ## How to use
 1. Download ImageFolderSplitter.py
