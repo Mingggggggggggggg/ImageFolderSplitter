@@ -25,8 +25,10 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
     found_non_images = False
 
     for root, _, files in os.walk(input_dir, topdown=False):
-        image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-        other_files = [f for f in files if not f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        # Check images with wanted suffixes
+        image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))] # Add or remove wanted suffixes by adding: '.[suffix]' on this line
+        # Check files without the images -> marking them not images
+        other_files = [f for f in files if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))] # and this line
 
         # Bewege nicht-Bilddateien
         for other_file in other_files:
