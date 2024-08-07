@@ -20,6 +20,7 @@ This App is currently in german. Depending on demand I'll translate this app.
 3. Select your desired folder
 4. Set Batchsize or toggle "Rename Images" and "Create Batches"
 5. Start
+
 Note: I have tried compiling this file into an .exe but I can't seem to get pyinstaller working and auto-py-to-exe creates an .exe which misses imports.
 If someone manages to make it work please contact me.
 
