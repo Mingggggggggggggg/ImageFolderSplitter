@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -16,6 +17,10 @@ def get_directory_size_mb(directory):
                      for filename in filenames)
     return total_size / (1024 * 1024)
 
+# Natürliche Sortierung von Strings
+def natural_sort_key(s):
+    return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
+
 # Umbenennung und Verschiebung der Bilder
 def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches):
     current_batch = 1
@@ -24,47 +29,58 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
     non_image_folder = os.path.join(input_dir, "non_images")
     found_non_images = False
 
-    for root, _, files in os.walk(input_dir, topdown=False):
-        # Check images with wanted suffixes
-        image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))] # Add or remove wanted suffixes by adding: '.[suffix]' on this line
-        # Check files without the images -> marking them not images
-        other_files = [f for f in files if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))] # and this line
+    num_renamed_images = 0
+    num_non_images = 0
 
-        # Bewege nicht-Bilddateien
-        for other_file in other_files:
-            other_file_path = os.path.join(root, other_file)
-            if not found_non_images:
-                os.makedirs(non_image_folder, exist_ok=True)
-                found_non_images = True
-            shutil.move(other_file_path, os.path.join(non_image_folder, other_file))
+    # Holen und Sortieren der Unterordner nach natürlicher Sortierung
+    subfolders = sorted([f.path for f in os.scandir(input_dir) if f.is_dir()], key=lambda f: natural_sort_key(os.path.basename(f)))
 
-        for image_file in image_files:
-            original_name, ext = os.path.splitext(image_file)
-            image_path = os.path.join(root, image_file)
-            size_mb = get_file_size_mb(image_path)
-            new_name = f"{image_index:03d}-{original_name}{ext}" if rename_images else image_file
-            image_index += 1
-            new_image_path = os.path.join(root, new_name)
+    for folder in subfolders:
+        for root, _, files in os.walk(folder, topdown=False):
+            # Check images with wanted suffixes
+            image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))]
+            # Check files without the images -> marking them not images
+            other_files = [f for f in files if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))]
 
-            # Benenne das Bild um, wenn gewünscht
-            if rename_images:
-                os.rename(image_path, new_image_path)
-            else:
-                new_image_path = image_path
+            # Bewege nicht-Bilddateien
+            for other_file in other_files:
+                other_file_path = os.path.join(root, other_file)
+                if not found_non_images:
+                    os.makedirs(non_image_folder, exist_ok=True)
+                    found_non_images = True
+                shutil.move(other_file_path, os.path.join(non_image_folder, other_file))
+                num_non_images += 1
 
-            if sort_into_batches:
-                output_dir = os.path.join(input_dir, str(current_batch))
-                os.makedirs(output_dir, exist_ok=True)
-                shutil.move(new_image_path, os.path.join(output_dir, new_name))
-                current_size_mb += size_mb
+            for image_file in image_files:
+                original_name, ext = os.path.splitext(image_file)
+                image_path = os.path.join(root, image_file)
+                size_mb = get_file_size_mb(image_path)
+                new_name = f"{image_index:03d}-{original_name}{ext}" if rename_images else image_file
+                image_index += 1
+                new_image_path = os.path.join(root, new_name)
 
-                if current_size_mb >= batch_size_mb:
-                    folder_size_mb = get_directory_size_mb(output_dir)
-                    new_folder_name = f"{current_batch} ({folder_size_mb:.2f} MB)"
-                    new_folder_path = os.path.join(input_dir, new_folder_name)
-                    os.rename(output_dir, new_folder_path)
-                    current_batch += 1
-                    current_size_mb = 0
+                # Benenne das Bild um, wenn gewünscht
+                if rename_images:
+                    os.rename(image_path, new_image_path)
+                    num_renamed_images += 1
+                else:
+                    new_image_path = image_path
+
+                if sort_into_batches:
+                    output_dir = os.path.join(input_dir, str(current_batch))
+                    os.makedirs(output_dir, exist_ok=True)
+                    shutil.move(new_image_path, os.path.join(output_dir, new_name))
+                    current_size_mb += size_mb
+
+                    if current_size_mb >= batch_size_mb:
+                        folder_size_mb = get_directory_size_mb(output_dir)
+                        new_folder_name = f"{current_batch} ({folder_size_mb:.2f} MB)"
+                        new_folder_path = os.path.join(input_dir, new_folder_name)
+                        os.rename(output_dir, new_folder_path)
+                        current_batch += 1
+                        current_size_mb = 0
+                else:
+                    num_renamed_images += 1  # Bild wurde umbenannt, aber nicht in Batch verschoben
 
         # Lösche leere Ordner, die die .processed-Datei enthalten
         for dirpath, dirnames, _ in os.walk(root, topdown=False):
@@ -86,7 +102,7 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
     processed_flag = os.path.join(input_dir, '.processed')
     open(processed_flag, 'w').close()
 
-    return current_batch, found_non_images
+    return current_batch, found_non_images, num_renamed_images, num_non_images
 
 # Fenster zentrieren
 def center_window(window):
@@ -123,10 +139,19 @@ def select_input_directory_and_options():
             rename_images = rename_var.get()
             sort_into_batches = sort_var.get()
 
-            confirmation = messagebox.askyesno(
-                "Bestätigung",
-                f"Gewählter Ordner: {input_dir}\nZielgröße pro Batch: {batch_size_mb} MB\nBilder umbenennen: {'Ja' if rename_images else 'Nein'}\nIn Batches einordnen: {'Ja' if sort_into_batches else 'Nein'}\n\nSind diese Einstellungen korrekt?"
+            confirmation_message = (
+                f"Gewählter Ordner: {input_dir}\n"
+                f"Zielgröße pro Batch: {batch_size_mb} MB\n"
+                f"Bilder umbenennen: {'Ja' if rename_images else 'Nein'}\n"
+                f"In Batches einordnen: {'Ja' if sort_into_batches else 'Nein'}\n"
             )
+            
+            if sort_into_batches:
+                confirmation_message += "Weitere Details werden angezeigt, wenn die Verarbeitung abgeschlossen ist."
+            else:
+                confirmation_message += "Weitere Details über die Bilder und nicht-Bilder werden angezeigt."
+
+            confirmation = messagebox.askyesno("Bestätigung", confirmation_message)
             if confirmation:
                 root.quit()
 
@@ -192,12 +217,20 @@ if __name__ == "__main__":
     try:
         input_dir, batch_size_mb, rename_images, sort_into_batches = select_input_directory_and_options()
 
-        num_batches, found_non_images = rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches)
+        num_batches, found_non_images, num_renamed_images, num_non_images = rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches)
 
         if num_batches == 0 and sort_into_batches:
             num_batches = 1
 
-        result_message = f"Es wurden {num_batches} Batch-Ordner erstellt und Bilder verschoben."
+        if sort_into_batches:
+            result_message = f"Es wurden {num_batches} Batch-Ordner erstellt und Bilder verschoben."
+        else:
+            result_message = (
+                f"Anzahl der umbenannten Bilder: {num_renamed_images}\n"
+                f"Anzahl der nicht umbenannten Bilder: {num_non_images}\n"
+                f"Anzahl der Nicht-Bilddateien: {num_non_images}\n"
+            )
+        
         if found_non_images:
             result_message += "\nEin gesonderter Ordner für Nicht-Bilddateien wurde erstellt."
         messagebox.showinfo("Fertig", result_message)
