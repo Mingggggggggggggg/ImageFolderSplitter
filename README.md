@@ -3,6 +3,7 @@ A script that enumerates images (.png, .jpg, .jpeg) in folders and divides them 
 
 For Windows
 Haven't and can't test for Linux or Mac.
+This App is currently in german. Maybe I'll add multiple languages in the future.
 
 ## How to use
 1. Download ImageFolderSplitter.py
