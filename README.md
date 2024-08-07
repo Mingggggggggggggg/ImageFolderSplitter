@@ -14,7 +14,7 @@ After processing, the app adds a .processed flag file to the root directory to i
 
 This App is currently in german. Depending on demand I'll translate this app.
 
-## Edit suffixes in the Sourcecode to your Use-Case
+## Edit suffixes in the sourcecode to your Use-Case
 This app is not limited to only images but can work with any suffixes!
 
 ![grafik](https://github.com/user-attachments/assets/5c2c709e-21c7-4e50-830a-7cab309f1ba1)
