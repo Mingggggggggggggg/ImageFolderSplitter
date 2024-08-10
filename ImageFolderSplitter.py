@@ -8,13 +8,20 @@ import sys
 
 # Ermittlung der Dateigröße in MB
 def get_file_size_mb(file_path):
-    return os.path.getsize(file_path) / (1024 * 1024)
+    try:
+        return os.path.getsize(file_path) / (1024 * 1024)
+    except OSError as e:
+        print(f"Fehler beim Abrufen der Dateigröße von {file_path}: {e}")
+        return 0
 
 # Berechnung der Größe eines Verzeichnisses in MB
 def get_directory_size_mb(directory):
-    total_size = sum(os.path.getsize(os.path.join(dirpath, filename))
-                     for dirpath, _, filenames in os.walk(directory)
-                     for filename in filenames)
+    total_size = 0
+    try:
+        for dirpath, _, filenames in os.walk(directory):
+            total_size += sum(os.path.getsize(os.path.join(dirpath, filename)) for filename in filenames)
+    except OSError as e:
+        print(f"Fehler beim Abrufen der Verzeichnisgröße von {directory}: {e}")
     return total_size / (1024 * 1024)
 
 # Natürliche Sortierung von Strings
@@ -22,7 +29,7 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
 
 # Umbenennung und Verschiebung der Bilder
-def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches):
+def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches, reverse_order=False):
     current_batch = 1
     current_size_mb = 0
     image_index = 1
@@ -33,14 +40,18 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
     num_non_images = 0
 
     # Holen und Sortieren der Unterordner nach natürlicher Sortierung
-    subfolders = sorted([f.path for f in os.scandir(input_dir) if f.is_dir()], key=lambda f: natural_sort_key(os.path.basename(f)))
+    subfolders = sorted(
+        [f.path for f in os.scandir(input_dir) if f.is_dir()],
+        key=lambda f: natural_sort_key(os.path.basename(f)),
+        reverse=reverse_order
+    )
 
     for folder in subfolders:
         for root, _, files in os.walk(folder, topdown=False):
             # Check images with wanted suffixes
-            image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))] # edit the suffixes to your use case
+            image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))]
             # Check files without the following suffixes -> marking them as other_files
-            other_files = [f for f in files if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))] # edit the suffixes to your use case
+            other_files = [f for f in files if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.jpe', '.gif'))]
 
             # Bewege nicht-Bilddateien
             for other_file in other_files:
@@ -48,10 +59,13 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
                 if not found_non_images:
                     os.makedirs(non_image_folder, exist_ok=True)
                     found_non_images = True
-                shutil.move(other_file_path, os.path.join(non_image_folder, other_file))
+                try:
+                    shutil.move(other_file_path, os.path.join(non_image_folder, other_file))
+                except shutil.Error as e:
+                    print(f"Fehler beim Verschieben von {other_file_path}: {e}")
                 num_non_images += 1
 
-            for image_file in image_files:
+            for image_file in sorted(image_files, key=natural_sort_key):
                 original_name, ext = os.path.splitext(image_file)
                 image_path = os.path.join(root, image_file)
                 size_mb = get_file_size_mb(image_path)
@@ -61,7 +75,10 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
 
                 # Benenne das Bild um, wenn gewünscht
                 if rename_images:
-                    os.rename(image_path, new_image_path)
+                    try:
+                        os.rename(image_path, new_image_path)
+                    except OSError as e:
+                        print(f"Fehler beim Umbenennen von {image_path} nach {new_image_path}: {e}")
                     num_renamed_images += 1
                 else:
                     new_image_path = image_path
@@ -69,25 +86,31 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
                 if sort_into_batches:
                     output_dir = os.path.join(input_dir, str(current_batch))
                     os.makedirs(output_dir, exist_ok=True)
-                    shutil.move(new_image_path, os.path.join(output_dir, new_name))
+                    try:
+                        shutil.move(new_image_path, os.path.join(output_dir, new_name))
+                    except shutil.Error as e:
+                        print(f"Fehler beim Verschieben von {new_image_path} nach {os.path.join(output_dir, new_name)}: {e}")
                     current_size_mb += size_mb
 
                     if current_size_mb >= batch_size_mb:
                         folder_size_mb = get_directory_size_mb(output_dir)
                         new_folder_name = f"{current_batch} ({folder_size_mb:.2f} MB)"
                         new_folder_path = os.path.join(input_dir, new_folder_name)
-                        os.rename(output_dir, new_folder_path)
+                        try:
+                            os.rename(output_dir, new_folder_path)
+                        except OSError as e:
+                            print(f"Fehler beim Umbenennen von {output_dir} nach {new_folder_path}: {e}")
                         current_batch += 1
                         current_size_mb = 0
                 else:
                     num_renamed_images += 1  # Bild wurde umbenannt, aber nicht in Batch verschoben
 
-        # Lösche leere Ordner, die die .processed-Datei enthalten
+        # Lösche leere Ordner
         for dirpath, dirnames, _ in os.walk(root, topdown=False):
             if not os.listdir(dirpath):
                 try:
                     os.rmdir(dirpath)
-                except Exception as e:
+                except OSError as e:
                     print(f"Fehler beim Löschen von {dirpath}: {e}")
 
     # Letzten Batch-Ordner umbenennen
@@ -96,11 +119,18 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
         folder_size_mb = get_directory_size_mb(output_dir)
         new_folder_name = f"{current_batch} ({folder_size_mb:.2f} MB)"
         new_folder_path = os.path.join(input_dir, new_folder_name)
-        os.rename(output_dir, new_folder_path)
+        try:
+            os.rename(output_dir, new_folder_path)
+        except OSError as e:
+            print(f"Fehler beim Umbenennen von {output_dir} nach {new_folder_path}: {e}")
 
     # .processed-Datei im Root-Verzeichnis erstellen
     processed_flag = os.path.join(input_dir, '.processed')
-    open(processed_flag, 'w').close()
+    try:
+        with open(processed_flag, 'w'):
+            pass
+    except OSError as e:
+        print(f"Fehler beim Erstellen der .processed-Datei: {e}")
 
     return current_batch, found_non_images, num_renamed_images, num_non_images
 
@@ -125,7 +155,7 @@ def select_input_directory_and_options():
                 input_dir = ""
 
     def submit():
-        nonlocal batch_size_mb, rename_images, sort_into_batches
+        nonlocal batch_size_mb, rename_images, sort_into_batches, reverse_order
         if input_dir:
             if os.path.isfile(os.path.join(input_dir, '.processed')):
                 messagebox.showwarning("Bereits verarbeitet", "Der ausgewählte Ordner wurde bereits verarbeitet.")
@@ -138,12 +168,14 @@ def select_input_directory_and_options():
 
             rename_images = rename_var.get()
             sort_into_batches = sort_var.get()
+            reverse_order = reverse_var.get()
 
             confirmation_message = (
                 f"Gewählter Ordner: {input_dir}\n"
                 f"Zielgröße pro Batch: {batch_size_mb} MB\n"
                 f"Bilder umbenennen: {'Ja' if rename_images else 'Nein'}\n"
                 f"In Batches einordnen: {'Ja' if sort_into_batches else 'Nein'}\n"
+                f"Ordner von unten nach oben bearbeiten: {'Ja' if reverse_order else 'Nein'}\n"
             )
             
             if sort_into_batches:
@@ -168,6 +200,7 @@ def select_input_directory_and_options():
     batch_size_mb = 450
     rename_images = True
     sort_into_batches = True
+    reverse_order = True  # Standardmäßig aktiviert
 
     root = tk.Tk()
     root.title("Image Folder Splitter")
@@ -190,16 +223,19 @@ def select_input_directory_and_options():
     sort_var = tk.BooleanVar(value=True)
     tk.Checkbutton(frame, text="In Batches einordnen", variable=sort_var, command=toggle_batch_size).grid(row=2, column=0, columnspan=2, sticky='w')
 
+    reverse_var = tk.BooleanVar(value=True)  # Standardmäßig aktiviert
+    tk.Checkbutton(frame, text="Ordner von unten nach oben bearbeiten", variable=reverse_var).grid(row=3, column=0, columnspan=2, sticky='w')
+
     select_button = ttk.Button(frame, text="Ordner auswählen", command=select_folder)
-    select_button.grid(row=3, column=0, columnspan=2, sticky='ew')
+    select_button.grid(row=4, column=0, columnspan=2, sticky='ew')
     select_button.bind("<Enter>", on_hover)
     select_button.bind("<Leave>", on_leave)
 
     path_label = tk.Label(frame, text="")
-    path_label.grid(row=4, column=0, columnspan=2, sticky='w')
+    path_label.grid(row=5, column=0, columnspan=2, sticky='w')
 
     submit_button = ttk.Button(frame, text="Weiter", command=submit)
-    submit_button.grid(row=5, column=0, columnspan=2, sticky='ew')
+    submit_button.grid(row=6, column=0, columnspan=2, sticky='ew')
     submit_button.bind("<Enter>", on_hover)
     submit_button.bind("<Leave>", on_leave)
 
@@ -210,14 +246,14 @@ def select_input_directory_and_options():
     if not input_dir:
         sys.exit("Kein Ordner ausgewählt")
 
-    return input_dir, batch_size_mb, rename_images, sort_into_batches
+    return input_dir, batch_size_mb, rename_images, sort_into_batches, reverse_order
 
 # MAIN
 if __name__ == "__main__":
     try:
-        input_dir, batch_size_mb, rename_images, sort_into_batches = select_input_directory_and_options()
+        input_dir, batch_size_mb, rename_images, sort_into_batches, reverse_order = select_input_directory_and_options()
 
-        num_batches, found_non_images, num_renamed_images, num_non_images = rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches)
+        num_batches, found_non_images, num_renamed_images, num_non_images = rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches, reverse_order)
 
         if num_batches == 0 and sort_into_batches:
             num_batches = 1
