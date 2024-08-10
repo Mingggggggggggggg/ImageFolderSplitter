@@ -20,11 +20,11 @@ This app is not limited to only images but can work with any suffixes!
 
 ![grafik](https://github.com/user-attachments/assets/5c2c709e-21c7-4e50-830a-7cab309f1ba1)
 
-
+This application has only been tested on Windows.
 
 ## How to use
 1. Download ImageFolderSplitter.py
-2. Execute the file using your IDE or terminal
+2. Execute the file with python, or your IDE or terminal.
 3. Select your desired folder
 4. Set Batchsize or toggle "Rename Images" and "Create Batches"
 5. Start
