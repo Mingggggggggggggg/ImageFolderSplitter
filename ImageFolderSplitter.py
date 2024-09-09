@@ -59,8 +59,19 @@ def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_ba
                 if not found_non_images:
                     os.makedirs(non_image_folder, exist_ok=True)
                     found_non_images = True
+
+                # Initialer Zielpfad
+                target_path = os.path.join(non_image_folder, other_file)
+                file_name, ext = os.path.splitext(other_file)
+                counter = 1
+
+                # Solange der Zielpfad existiert, füge eine Nummer hinzu
+                while os.path.exists(target_path):
+                    target_path = os.path.join(non_image_folder, f"{counter}_{file_name}{ext}")
+                    counter += 1
+                        
                 try:
-                    shutil.move(other_file_path, os.path.join(non_image_folder, other_file))
+                    shutil.move(other_file_path, target_path)
                 except shutil.Error as e:
                     print(f"Fehler beim Verschieben von {other_file_path}: {e}")
                 num_non_images += 1
