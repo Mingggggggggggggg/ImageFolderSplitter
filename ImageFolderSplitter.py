@@ -26,7 +26,13 @@ def get_directory_size_mb(directory):
 
 # Natürliche Sortierung von Strings
 def natural_sort_key(s):
-    return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
+    def safe_int(text):
+        try:
+            return int(text)
+        except ValueError:
+            return text  # Falls nicht numerisch, bleibt es ein String
+    return [safe_int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]
+
 
 # Umbenennung und Verschiebung der Bilder
 def rename_and_move_images(input_dir, batch_size_mb, rename_images, sort_into_batches, reverse_order=False):
